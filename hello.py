@@ -1,27 +1,27 @@
-import httpx
 from prefect import flow, task
+from pydicom import dcmread
 
 
-@flow(log_prints=True)
-def show_stars(github_repos: list[str]):
-    """Show the number of stars that GitHub repos have"""
-    for repo in github_repos:
-        repo_stats = fetch_stats(repo)
-        stars = get_stars(repo_stats)
-        print(f"{repo}: {stars} stars")
+@task(log_prints=True)
+def read_content(filepath: str):
+    """Read the content of a DICOM file."""
+    try:
+        dicom_data = dcmread(filepath)
+        return dicom_data
+    except Exception as e:
+        print(f"Error reading DICOM file: {e}")
+        return {"error": str(e)}
 
 
-@task
-def fetch_stats(github_repo: str):
-    """Fetch the statistics for a GitHub repo"""
-    return httpx.get(f"https://api.github.com/repos/{github_repo}").json()
+@task(log_prints=True)
+def information(patient_info: dict):
+    """Print the patient information."""
+    return patient_info.PatientName
 
 
-@task
-def get_stars(repo_stats: dict):
-    """Get the number of stars from GitHub repo statistics"""
-    return repo_stats["stargazers_count"]
-
-
-if __name__ == "__main__":
-    show_stars(["PrefectHQ/prefect", "pydantic/pydantic", "huggingface/transformers"])
+@flow(name="DICOM Processing Flow")
+def main_flow(filepath: str):
+    """Main flow to process a DICOM file."""
+    contents = read_content(filepath)
+    patient_info = information(contents)
+    return print(patient_info)
